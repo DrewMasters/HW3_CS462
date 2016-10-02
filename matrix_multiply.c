@@ -81,9 +81,9 @@ int main(int argc, char **argv){
 	/*
 	 * Write resulting matrix to C.dat
 	 */
-	/*f = fopen("C.dat", "wb");
+	f = fopen("C.dat", "wb");
 	fwrite(C, sizeof(double), n*n, f);
 	fclose(f);
-	*/
+	
 	MPI_Finalize();
 }
