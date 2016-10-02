@@ -15,24 +15,23 @@ int main(int argc, char **argv){
 	srand(time(NULL));
 	for (i=0;i<n*n;i++){
 		A[i]=((double)rand()/(double)RAND_MAX)*100;
+		printf("i: %d A: %f\n",i,A[i]);
 	}
+	for (i=0;i<n*n;i++) printf("A[%d]: %f\n",i,A[i]);
 	
-	for (i=0;i<n;i++){
-		for (j=0;j<n;j++){
-			printf("%f ",A[i*j]);
-		}
-		printf("\n");
+	for (i=0;i<n*n;i++){
+		if (i%n==0&&i!=0) printf("\n");
+		printf("%f ",A[i]);
 	}	
-
+	printf("\n");
+	int tmpi;
 	fb = fopen(argv[2],"wb");
 	fwrite(A,sizeof(double),n*n,fb);
 	fclose(fb);
 	fr = fopen(argv[3],"w");
-	for (i=0; i<n;i++){
-		for (j=0; j<n;j++){
-			fprintf(fr, "%f ", A[i*j]);
-		}
-		fprintf(fr,"\n");
+	for (i=0; i<n*n;i++){
+		if (i%n==0)fprintf(fr,"\n");
+		fprintf(fr, "%f ", A[i]);
 	}
 	fclose(fr);
 }

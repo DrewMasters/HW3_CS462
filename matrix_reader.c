@@ -6,18 +6,17 @@ int main(int argc, char **argv){
 	int n, i, j;
 	double *A;
 
-	A=(double *)malloc(sizeof(double)*n*n);
-
 	n=atoi(argv[1]);
+	A=(double *)malloc(sizeof(double)*n*n);
 	f = fopen(argv[2],"rb");
 	
 	fread(A,sizeof(double),n*n,f);
 	fclose(f);
 
-	for (i=0;i<n;i++){
-		for (j=0;j<n;j++){
-			printf("%f ", A[i*j]);
-		}
-		printf("\n");
+	int tmpi;
+	for (i=0;i<n*n;i++){
+		if(i%n==0&&i!=0)printf("\n");
+		printf("%f ", A[i]);
 	}
+	printf("\n");
 }
