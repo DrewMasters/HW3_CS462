@@ -4,10 +4,9 @@
 #include <math.h>
 
 int main(int argc, char **argv){
-	int world_size, world_rank,n;
+	int i,j,world_size, world_rank,n;
 	FILE *f;
-	double *A, *B, *C;
-	MPI_Status status;
+	double *A, *B, *C,tmp;
 	/*
 	 * Initialize MPI
 	 */
@@ -20,7 +19,7 @@ int main(int argc, char **argv){
 	MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
 	n = (int) sqrt(world_size);
 	//printf("%d has started\n",world_rank);
-	if (world_rank==0)printf("n: %d\n",n);
+	if (world_rank==0)printf("n: %d world size: %d\n",n,world_size);
 	/* 
 	 * Check to see if matrix/grid
 	 * is a square
@@ -53,26 +52,29 @@ int main(int argc, char **argv){
 		fclose(f);
 		
 		printf("%d finished reading in matrices\n",world_rank);
+	
+		for (i=1;i<n*n;i++){
+			for (j=0; j<n*n; j++)
+			{
+				MPI_Send(&A[j],1,MPI_DOUBLE,i,0,MPI_COMM_WORLD);
+				MPI_Send(&B[j],1,MPI_DOUBLE,i,1,MPI_COMM_WORLD);
+			}
+		}
 	}
-	/*printf("world_rank %d/%d\n",world_rank,world_size);
-	MPI_Bcast(&A,sizeof(double)*n*n,MPI_DOUBLE,0,MPI_COMM_WORLD);
-	MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
-	//printf("%d received matrix A\n",world_rank);
-	printf("A world_rank %d/%d\n",world_rank,world_size);
-	MPI_Bcast(&B,sizeof(double)*n*n,MPI_DOUBLE,0,MPI_COMM_WORLD);
-	MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
-	//printf("%d has received both matrices\n",world_rank);
-	printf("AB world_rank %d/%d\n",world_rank,world_size);
-	*/
+	else{
+		for (j=0; j<n*n; j++){
+			MPI_Recv(&A[j],1,MPI_DOUBLE,0,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+			MPI_Recv(&B[j],1,MPI_DOUBLE,0,1,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+		}
+	}
 	/*
 	 * Distribute matrix across all processes
 	 */
-	int i,j;
-	for (i=0;i<n;i++){
-		for(j=0;j<n;j++){
-			printf("%d A i:%d j:%d %f\n",world_rank,i,j,A[i*j]);
-			printf("%d B i:%d j:%d %f\n",world_rank,i,j,B[i*j]);
-		}
+	//MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
+	printf("%d about to print matrix\n",world_rank);
+	for (i=0;i<n*n;i++){
+		printf("%d A i:%d %f\n",world_rank,i,A[i]);
+		printf("%d B i:%d %f\n",world_rank,i,B[i]);
 	}
 	/*
 	 * Multiply matrix
