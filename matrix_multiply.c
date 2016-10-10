@@ -4,9 +4,17 @@
 #include <math.h>
 
 int main(int argc, char **argv){
-	int i,j,k,row,col,t,world_size, world_rank,n;
+	int i, j, root, row, col, t, r_rank, r_size,
+		c_rank, c_size, world_size, world_rank, n, k;
 	FILE *f;
-	double *A, *B, *C,*dot,*tc,tmp,va,vb;
+	double *A, *B, *C,*tr, *tc, va, vb;
+	MPI_Comm r, c;
+	
+	/*
+	 * root process
+	 */
+	root = 0;
+	
 	/*
 	 * Initialize MPI
 	 */
@@ -18,8 +26,7 @@ int main(int argc, char **argv){
 	MPI_Comm_size(MPI_COMM_WORLD, &world_size);
 	MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
 	n = (int) sqrt(world_size);
-	//printf("%d has started\n",world_rank);
-	if (world_rank==0)printf("n: %d world size: %d\n",n,world_size);
+
 	/* 
 	 * Check to see if matrix/grid
 	 * is a square
@@ -28,25 +35,39 @@ int main(int argc, char **argv){
 		MPI_Finalize();
 		exit(1);
 	}
+	
+	/*
+	 * find mapping for process
+	 */
 	row = world_rank % n;
 	col = world_rank / n;
+	
+	/*
+	 * create row and column communicators
+	 * r = row communicator
+	 * c = column communicator
+	 */
+	MPI_Comm_split(MPI_COMM_WORLD, row, world_rank, &r);
+	MPI_Comm_split(MPI_COMM_WORLD, col, world_rank, &c);
+	MPI_Comm_size(r, &r_size);
+	MPI_Comm_size(c, &c_size);
+	MPI_Comm_rank(r, &r_rank);
+	MPI_Comm_rank(c, &c_rank);
+
 	/*
 	 * Create matrix objects
 	 */
-	//printf("%d about to initialize matrices\n",world_rank);
 	A = (double *)malloc(sizeof(double)*n*n);
 	B = (double *)malloc(sizeof(double)*n*n);
 	C = (double *)malloc(sizeof(double)*n*n);
-	dot = (double *)malloc(sizeof(double)*n);
+	tr = (double *)malloc(sizeof(double)*n);
 	tc = (double *)malloc(sizeof(double)*n);
-	//printf("%d matrices are initialized\n",world_rank);
-	
+
 	/*
 	 * Read in matrix information from
 	 * files A.dat and B.dat
 	 */
 	if (world_rank==0){
-		printf("%d about to read in matrices\n",world_rank);
 		f = fopen("A.dat","rb");
 		fread(A, sizeof(double), n*n, f);
 		fclose(f);
@@ -54,85 +75,92 @@ int main(int argc, char **argv){
 		f = fopen("B.dat","rb");
 		fread(B, sizeof(double), n*n, f);
 		fclose(f);
-		
-		printf("%d finished reading in matrices\n",world_rank);
-		va = A[0];
-		vb = B[0];
-		for (i=0; i < n; i++) tc[i]=B[i];
-		for (i=1;i<n*n;i++){
-			/*for (j=0; j<n*n; j++)
-			{
-				MPI_Send(&A[j],1,MPI_DOUBLE,i,0,MPI_COMM_WORLD);
-				MPI_Send(&B[j],1,MPI_DOUBLE,i,1,MPI_COMM_WORLD);
+
+		/*
+		 * distribute elements to processes
+		 */
+		k=0;
+		for (i=0; i < n; i++){
+			for (j=i; j < world_size; j+=n){
+				printf("1 i: %d j: %d k: %d\n",i,j,k);
+				if (j==0){
+					va = A[j];
+					vb = B[j];
+				}
+				else{
+					MPI_Send(&A[k], 1, MPI_DOUBLE, j, 0, MPI_COMM_WORLD);
+					MPI_Send(&B[k], 1, MPI_DOUBLE, j, 1, MPI_COMM_WORLD);
+				}
+				k++;
 			}
-			*/
-			/*
-			 * send each process it's matrix element
-			 */
-			MPI_Send(&A[i],1,MPI_DOUBLE,i,0,MPI_COMM_WORLD);
-			MPI_Send(&B[i],1,MPI_DOUBLE,i,1,MPI_COMM_WORLD);
-			printf("col: %d sending to %d\n",i/n,i);
-			MPI_Send(&A[n*(i/n)],n,MPI_DOUBLE,i,2,MPI_COMM_WORLD);
 		}
 	}
 	else{
-		printf("%d about to start receive matrix\n",world_rank);
-		/*for (j=0; j<n*n; j++){
-			MPI_Recv(&A[j],1,MPI_DOUBLE,0,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
-			MPI_Recv(&B[j],1,MPI_DOUBLE,0,1,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
-		}
-		*/
 		/*
-		 * receive element from root process
+		 * receive elements from root
 		 */
-		MPI_Recv(&va,1,MPI_DOUBLE,0,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
-		MPI_Recv(&vb,1,MPI_DOUBLE,0,1,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
-		MPI_Recv(&tc[0],n,MPI_DOUBLE,0,2,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+		MPI_Recv(&va, 1, MPI_DOUBLE, root, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+		MPI_Recv(&vb, 1, MPI_DOUBLE, root, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 	}
+	printf("row: %d col: %d world_rank: %d va: %f vb: %f\n",
+			row, col, world_rank, va, vb);
 
-	printf("%d va: %f row: %d col: %d\n",world_rank,va,row,col);
-	printf("%d vb: %f row: %d col: %d\n",world_rank,vb,row,col);
-	for (i=0;i<n;i++) printf("%d tc[%d]: %f\n", world_rank, i, tc[i]);
 	/*
-	 * take the first row of A and multiply it
-	 * by the value received for B
-	 * all elements in first column of A is 
-	 * multiplied by value in B
+	 * calculate dot product
 	 */
-	for (i=0;i<n;i++) dot[i]=vb*tc[i];
-	for (i=0;i<n;i++) printf("%d dot[%d]: %f\n",world_rank, i, dot[i]);
-	for (i=0;i<n*n;i++) C[i]=0;
-	for (i=0;i<n;i++) C[i]=C[i]+dot[i];
-	for (i=1;i<n;i++){
+	MPI_Comm_rank(r, &r_rank);
+	MPI_Comm_rank(c, &c_rank);
+	MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
+	//printf("%d about to create row array\n",world_rank);
+	MPI_Allgather(&va, 1, MPI_DOUBLE, tr, 1, MPI_DOUBLE, r);
+
+	MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
+	MPI_Comm_rank(r, &r_rank);
+	MPI_Comm_rank(c, &c_rank);
+	//printf("%d about to create column array\n",world_rank);
+	MPI_Allgather(&vb, 1, MPI_DOUBLE, tc, 1, MPI_DOUBLE, c);
+	
+	MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
+	MPI_Comm_rank(r, &r_rank);
+	MPI_Comm_rank(c, &c_rank);
+	//printf("%d finish both gathers\n",world_rank);
+
+	MPI_Comm_rank(r, &r_rank);
+	MPI_Comm_rank(c, &c_rank);
+	MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
+	/*
+	printf("%d about to print row array\n",world_rank);
+	for (i=0; i < n; i++){
+		printf("%d tr[%d]: %f\n",world_rank, i, tr[i]);
+	}
+	*/
+	MPI_Comm_rank(r, &r_rank);
+	MPI_Comm_rank(c, &c_rank);
+
+	/*
+	printf("%d about to print column array\n",world_rank);
+	for (i=0; i < n; i++){
+		printf("%d tc[%d]: %f\n",world_rank, i, tc[i]);
+	}
+	*/
+	if (world_rank==0){
+		/*
+		 * receive elements from other processes
+		 * and place elements in correct position
+		 * of matrix/array C
+		 */
+
+
+		/*
+		 * write C to C.dat
+		 */
 
 	}
+	else{
+		/*
+		 * send result back to root
+		 */
 
-	/*
-	 * Distribute matrix across all processes
-	 */
-	//MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
-	/*printf("%d about to print matrix\n",world_rank);
-	for (i=0;i<n*n;i++){
-		printf("%d A i:%d %f\n",world_rank,i,A[i]);
-		printf("%d B i:%d %f\n",world_rank,i,B[i]);
-	}*/
-	/*
-	 * Multiply matrix
-	 */
-
-	/*
-	 * Collect matrix elements from all processes and combine
-	 * it in to result matrix C
-	 */
-
-	/*
-	 * Write resulting matrix to C.dat
-	 */
-	/*if (world_rank==0){
-		f = fopen("C.dat", "wb");
-		fwrite(C, sizeof(double), n*n, f);
-		fclose(f);
-	}*/
-
+	}
 	MPI_Finalize();
 }
