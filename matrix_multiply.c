@@ -4,7 +4,7 @@
 #include <math.h>
 
 int main(int argc, char **argv){
-	int i,j,row,col,t,world_size, world_rank,n;
+	int i,j,k,row,col,t,world_size, world_rank,n;
 	FILE *f;
 	double *A, *B, *C,*dot,*tc,tmp,va,vb;
 	/*
@@ -100,6 +100,12 @@ int main(int argc, char **argv){
 	 * multiplied by value in B
 	 */
 	for (i=0;i<n;i++) dot[i]=vb*tc[i];
+	for (i=0;i<n;i++) printf("%d dot[%d]: %f\n",world_rank, i, dot[i]);
+	for (i=0;i<n*n;i++) C[i]=0;
+	for (i=0;i<n;i++) C[i]=C[i]+dot[i];
+	for (i=1;i<n;i++){
+
+	}
 
 	/*
 	 * Distribute matrix across all processes
