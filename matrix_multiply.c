@@ -101,41 +101,14 @@ int main(int argc, char **argv){
 		MPI_Recv(&va, 1, MPI_DOUBLE, root, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 		MPI_Recv(&vb, 1, MPI_DOUBLE, root, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 	}
-	printf("row: %d col: %d world_rank: %d va: %f vb: %f\n",
-			row, col, world_rank, va, vb);
 
 	/*
 	 * construct rows and columns for dot product
 	 */
-	MPI_Comm_rank(r, &r_rank);
-	MPI_Comm_rank(c, &c_rank);
-	MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
 	MPI_Allgather(&va, 1, MPI_DOUBLE, tr, 1, MPI_DOUBLE, r);
 
-	MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
-	MPI_Comm_rank(r, &r_rank);
-	MPI_Comm_rank(c, &c_rank);
 	MPI_Allgather(&vb, 1, MPI_DOUBLE, tc, 1, MPI_DOUBLE, c);
 	
-	MPI_Comm_rank(MPI_COMM_WORLD, &world_rank);
-	MPI_Comm_rank(r, &r_rank);
-	MPI_Comm_rank(c, &c_rank);
-
-	/*printf("%d about to print row array\n",world_rank);
-	for (i=0; i < n; i++){
-		printf("%d tr[%d]: %f\n",world_rank, i, tr[i]);
-	}
-	
-	MPI_Comm_rank(r, &r_rank);
-	MPI_Comm_rank(c, &c_rank);
-
-	
-	printf("%d about to print column array\n",world_rank);
-	for (i=0; i < n; i++){
-		printf("%d tc[%d]: %f\n",world_rank, i, tc[i]);
-	}
-	*/
-	printf("%d local row and col constructed\n",world_rank);
 	/*
 	 * calculate dot product
 	 */
@@ -143,7 +116,7 @@ int main(int argc, char **argv){
 	for (i=0; i<n; i++){
 		dot = dot + tr[i]*tc[i];
 	}
-	printf("%d dot product calculated\n",world_rank);
+
 	if (world_rank==0){
 		/*
 		 * receive elements from other processes
@@ -177,13 +150,11 @@ int main(int argc, char **argv){
 		 */
 		MPI_Send(&dot, 1, MPI_DOUBLE, root, 0, MPI_COMM_WORLD);
 	}
-	printf("%d dot products gathered in process 0\n",world_rank);
+
 	if (world_rank==0){
-		printf("writing result to file\n");
 		f = fopen("C.dat", "wb");
 		fwrite(C,sizeof(double),world_size,f);
 		fclose(f);
-		printf("result written to file\n");
 	}
 
 	MPI_Finalize();
