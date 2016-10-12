@@ -6,6 +6,10 @@ int main(int argc, char **argv){
 	int n, i, j;
 	double *A;
 
+	if (argc!=3){
+		printf("Usage: ./matrix_reader size file_name\n");
+		exit(1);
+	}
 	n=atoi(argv[1]);
 	A=(double *)malloc(sizeof(double)*n*n);
 	f = fopen(argv[2],"rb");
